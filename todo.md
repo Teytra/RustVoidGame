@@ -1,6 +1,3 @@
-**Yarın**
-level'e bağlı düşman scalelenmesi ve bizim verdiğimiz hasarı scallemesi.
-
 **Orta zorluk**
 envanter sistemi.
 düşmanlardan düşen eşya sistemi.
@@ -13,3 +10,4 @@ market ve para sistemi.
 **imkansız**
 marcoquad ile pokemon dünyası gibi bir şey uğraş.
 co-op mantığı.
+Vermillionun Yapay Zekası.

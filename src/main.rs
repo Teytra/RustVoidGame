@@ -21,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         break name;
     };
-    let mut player = Player::new(name); 
+    let mut player = Player::new(name.trim().to_owned()); 
     loop { 
         clear_terminal();
         println!("[-------------------]");
@@ -50,12 +50,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn savas(player: &mut Player) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Savaş Başladı");
-    let enemy = Enemy::new(player.lvl); 
+    clear_terminal();
+    println!("\x1b[2;20HSavaş Başladı");
+    let mut enemy = Enemy::new(player.lvl); 
     let xp_gain = fastrand::i16(40..=60) + (player.lvl as i16 * (enemy.get_level() as i16 - player.lvl as i16));
-    let hasar = fastrand::u16(0..=enemy.damage);
 
     println!("Karşına Gelen Düşman {} Seviyede Savaşmak(E) Kaçmak(H)",enemy.get_level());
+
     let girdi = loop {
         if let Ok(girdi) = get_user_input() {
             let girdi = girdi.trim(); 
@@ -68,17 +69,29 @@ fn savas(player: &mut Player) -> Result<(), Box<dyn std::error::Error>> {
         
     };
     let kacabilme = kacmak();
-    if !girdi && kacabilme {println!("Kaçabildin Dayı" ); wait_for_user_input();return Ok(())} else if !girdi && !kacabilme {println!("Kaçamadın Dayı"); wait_for_user_input();}
-
-    
-    if player.health <= hasar {
-        let score = player.calculate_score();
-        println!("{} Hasara Dayanamadı Ve Karakterin Vefat Etti kazanılan skor: {}",hasar, score);
-        wait_for_user_input();
-        std::process::exit(0);
+    if !girdi && kacabilme {println!("Kaçabildin Dayı" ); wait_for_user_input();return Ok(())}
+     else if !girdi && !kacabilme {println!("Kaçamadın Dayı"); wait_for_user_input();}
+    loop {
+        clear_terminal();
+        println!("Enemy Health: {}\n{} Health: {} \nDevam etmek İçin Herhangi Bir Tuşa Basın",enemy.health,player.name,player.health);
+        wait_for_user_input(); 
+        let player_give_damage = fastrand::i16(50..=player.max_take_damage as i16);
+        if enemy.health as i16 - player_give_damage <= 0 {break;}
+        enemy.health -= player_give_damage as u16;
+        println!("Düşmana {} Kadar Hasar Verdin Şimdi Sıra Onda", player_give_damage);
+        let enemy_give_damage = fastrand::i16(20..=enemy.damage as i16);
+        if player.health as i16 - enemy_give_damage <= 0  {
+            let score = player.calculate_score();
+            println!("{} Hasara Dayanamadı Ve Karakterin Vefat Etti kazanılan skor: {}",enemy_give_damage, score);
+            wait_for_user_input();
+            std::process::exit(0);
+        }
+        player.health -= enemy_give_damage as u16;
+        println!("Düşman Sana {} Hasar Verdi", enemy_give_damage);
+        wait_for_user_input();                              
     }
-    player.health -= hasar;
-    println!("Kazanılan XP: {}\nKaybedilen Can: {}", xp_gain, hasar);
+
+    println!("Kazanılan XP: {}", xp_gain);
 
     let delta = player.xp + xp_gain as u16;
     if delta >= 100 {
@@ -96,7 +109,8 @@ fn savas(player: &mut Player) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn oyuncu_detaylari(player: &Player) {
-    println!("player_name: {}\nplayer_xp: {}\nplayer_level: {}\nplayer_hp: {}",
+    clear_terminal();
+    println!("Name: {}\nXP: {}\nLevel: {}\nHealth: {}",
             player.name, player.xp, player.lvl, player.health);
     wait_for_user_input();
 }
