@@ -1,11 +1,14 @@
-use player::Player;
 use input::{get_user_input, wait_for_user_input};
-use enemy::Enemy;
-mod enemy;
-mod player;
+
+use crate::creature::Creature;
+
+
+mod creature;
+
 mod input;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+
     let name = loop { 
         print!("İsim Gir ");
         let name = get_user_input()?;
@@ -21,7 +24,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         break name;
     };
-    let mut player = Player::new(name.trim().to_owned()); 
+    let mut player = Creature::create_player(name.trim().to_string(), 1.0, 0.0, 100.0, 100.0, 70.0, 5.0);
     loop { 
         clear_terminal();
         println!("[-------------------]");
@@ -49,13 +52,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn savas(player: &mut Player) -> Result<(), Box<dyn std::error::Error>> {
+fn savas(player: &mut Creature) -> Result<(), Box<dyn std::error::Error>> { // (player.lvl - 2.0).max(1.0)..=player.lvl +2.0
+
     clear_terminal();
     println!("\x1b[2;20HSavaş Başladı");
-    let mut enemy = Enemy::new(player.lvl); 
-    let xp_gain = fastrand::i16(40..=60) + (player.lvl as i16 * (enemy.get_level() as i16 - player.lvl as i16));
+    let mut enemy = Creature::create_enemy("Vermil".to_string(), (fastrand::f32() * (player.lvl + 2.0) - (player.lvl - 2.0)).round(), 31.0);
+    let xp_gain =  calculate_xp(enemy.lvl, player.lvl);
 
-    println!("Karşına Gelen Düşman {} Seviyede Savaşmak(E) Kaçmak(H)",enemy.get_level());
+    println!("Karşına Gelen Düşman {} Seviyede Savaşmak(E) Kaçmak(H)",enemy.lvl);
 
     let girdi = loop {
         if let Ok(girdi) = get_user_input() {
@@ -73,32 +77,58 @@ fn savas(player: &mut Player) -> Result<(), Box<dyn std::error::Error>> {
      else if !girdi && !kacabilme {println!("Kaçamadın Dayı"); wait_for_user_input();}
     loop {
         clear_terminal();
-        println!("Enemy Health: {}\n{} Health: {} \nDevam etmek İçin Herhangi Bir Tuşa Basın",enemy.health,player.name,player.health);
+        println!("{} Health: {}\n{} Health: {} \nDevam etmek İçin Herhangi Bir Tuşa Basın",
+        enemy.name,enemy.health,player.name,player.health);
+        let enemy_take_damage: f32 = player.damage * ((100.0 - enemy.defense).max(0.0) / 100.0);
+        let enemy_give_damage: f32 = enemy.damage * ((100.0 - player.defense).max(0.0) / 100.0);
         wait_for_user_input(); 
-        let player_give_damage = fastrand::i16(50..=player.max_take_damage as i16);
-        if enemy.health as i16 - player_give_damage <= 0 {break;}
-        enemy.health -= player_give_damage as u16;
-        println!("Düşmana {} Kadar Hasar Verdin Şimdi Sıra Onda", player_give_damage);
-        let enemy_give_damage = fastrand::i16(20..=enemy.damage as i16);
-        if player.health as i16 - enemy_give_damage <= 0  {
+
+        
+
+        if enemy.health - enemy_take_damage <= 0.0 {
+            println!("{} {} Hasar Yedi Ve Geberdi",
+            enemy.name,enemy_take_damage);
+            break;
+        }
+        enemy.health -= enemy_take_damage;
+
+        println!("{} {} Hasar Yedi",
+        enemy.name,enemy_take_damage);
+
+
+        if  player.health - enemy_give_damage <= 0.0  {
             let score = player.calculate_score();
-            println!("{} Hasara Dayanamadı Ve Karakterin Vefat Etti kazanılan skor: {}",enemy_give_damage, score);
+
+            println!("{} Hasara Dayanamadı Ve Karakterin Vefat Etti kazanılan skor: {}",
+            enemy_give_damage, score);
+
             wait_for_user_input();
+
             std::process::exit(0);
         }
-        player.health -= enemy_give_damage as u16;
-        println!("Düşman Sana {} Hasar Verdi", enemy_give_damage);
+        player.health -= enemy_give_damage  ;
+
+        println!("Düşman Sana {} Hasar Verdi",
+        enemy_give_damage);
+
         wait_for_user_input();                              
     }
 
     println!("Kazanılan XP: {}", xp_gain);
 
-    let delta = player.xp + xp_gain as u16;
-    if delta >= 100 {
-        player.lvl += 1;
-        player.xp = delta - 100;
-        player.max_health += 50;
-        player.max_take_damage += 50;
+    let delta = player.xp + xp_gain;
+
+    if delta >= 100.0 {
+        player.lvl += 1.0;
+
+        player.xp = delta - 100.0;
+
+        player.max_health += 50.0;
+
+        player.damage += 50.0;
+
+        player.defense += 2.5;
+
         println!("Xp Değeri Sınıra Ulaştı Level Değerin {} Oldu, Maksimum can değeri arttı.", player.lvl);
     }else {
         player.xp = delta;
@@ -108,35 +138,52 @@ fn savas(player: &mut Player) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn oyuncu_detaylari(player: &Player) {
+fn oyuncu_detaylari(player: &Creature) {
     clear_terminal();
-    println!("Name: {}\nXP: {}\nLevel: {}\nHealth: {}",
-            player.name, player.xp, player.lvl, player.health);
+    println!("Name: {}\nXP: {}\nLevel: {}\nHealth: {}\n Damage: {}\n Defense: {}",
+            player.name, player.xp, player.lvl, player.health, player.damage, player.defense);
     wait_for_user_input();
 }
 
 fn kacmak() -> bool {
-    if fastrand::u16(1..=100) >= 50 {
+    if fastrand::f32() * 100.0 >= 50.0 {
         true
     } else {
         false
     }
 }
+fn calculate_xp(enemy_lvl: f32, player_lvl: f32) -> f32 {
+    let base_xp = 70.0;
+
+    let enemy_multiplier = enemy_lvl.powf(1.15);
+
+    let level_difference = enemy_lvl - player_lvl;
+    let difficulty_multiplier = (1.0 + level_difference * 0.15).clamp(0.1, 3.0);
+
+    let random_multiplier = 0.9 + fastrand::f32() * 0.2;
+
+    (base_xp
+        * enemy_multiplier
+        * difficulty_multiplier
+        * random_multiplier)
+        .round()
+}
+
 
 fn clear_terminal() {
     print!("\x1B[2J\x1B[1;1H");
 }
 
-fn dinlenmek(player: &mut Player) {
-    let delta = fastrand::u16(1..=player.max_health - 20);
-    let yenilenecek = delta.clamp(0, player.max_health - player.health);
+fn dinlenmek(player: &mut Creature) {
+    let delta = fastrand::f32().round() * player.max_health - 20.0;
+    let yenilenecek = delta.clamp(0.0, player.max_health - player.health);
     player.health += yenilenecek;
 
     println!("Karakter dinlendi Ve {} Can Yeniledi", yenilenecek);
     wait_for_user_input();
 }
 
-fn vazgec(player: &Player) {
+fn vazgec(player: &Creature) {
     let score = player.calculate_score();
     println!("Korkup Kaçtın Skorun İse {}", score);
     wait_for_user_input();
